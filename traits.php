@@ -87,7 +87,7 @@ trait DBugTrait {
 }
 
 trait OldTreeTraits {
-	
+
 	public function offsetGet($key, $variable=null, $value=null)
 	{
 		# recursive getter, subsequent calls
@@ -162,7 +162,7 @@ trait OldTreeTraits {
 			elseif ($key==='.$') return $this->Key($set); # change Key
 			elseif ($key==='..') return $this->Parent($set); # set Parent
 			elseif ($key==='.!') $this->_['.!'] = $set; # set Lock level
-			elseif ($key==='.@') return $this->Convert($set); # set Convert, apply
+			// elseif ($key==='.@') return $this->Convert($set); # set Convert, apply
 		}
 		if ( array_key_exists($key, $this->_['T']) ) { 
 			$prev_val = $this->_['T'][$key];
@@ -196,6 +196,9 @@ trait OldTreeTraits {
 
 trait TreeTrait {
 
+	public function getArrayCopy() {
+		return $this->_['T'];
+	}
 	public function echoTree($echo=true) {
 		ini_set('xdebug.var_display_max_depth', 100);
 		ini_set('xdebug.var_display_max_children', 256);
@@ -221,6 +224,33 @@ trait TreeTrait {
 		'/\s+(.\!.=>)/s','/\s+(.\~.=>)/s','/\n\s*(.\/.=>)/s',
 		'/{/', '/\s*(.\$.=>)/'],' $1',$str); // cut \n
 		if ($echo) echo $str;
+		return $str;
+	}
+
+	public function __toString() {
+		ini_set('xdebug.var_display_max_depth', 100);
+		ini_set('xdebug.var_display_max_children', 256);
+		ini_set('xdebug.var_display_max_data', 1024);
+		$tree_ob = clone $this;
+		$recurse = function( &$tree ) use (&$recurse)
+		{
+			if ( !empty($tree->_['T']) )
+				foreach ($tree->_['T'] as $k => $v)
+					if ( is_a($v, get_class()) ) $recurse($v);
+			$tree->_['..'] = $tree->_['..']->_['.$'];
+			$tree->_['/'] = $tree->_['/']->_['.$'];
+			return $tree;
+		};
+		$result = $recurse($tree_ob);
+		ob_start(); var_dump($result);
+		$str = preg_replace('/\s+(=>)\s+/s','=>',ob_get_clean());
+		$str = str_replace([ "class "],'',$str);
+		$str = preg_replace(['/locked/', '/#[0-9]+ \([0-9]+\)/', '/\n\s*}/',
+			'/string\([0-9]+\)\s/','/array\([0-9]+\)\s/', '/object\((Tree)\) {/',
+			'/bool\(([a-zA-Z]+)\)/', '/int\(([0-9]+)\)/','/\n\s*(\s.\..=>)/',],'$1',$str);
+		$str = preg_replace(['/\n\s*\$_=>\s*/s','/\n\s*(.#.=>)/s','/\n\s*(.\.\..=>)/s',
+		'/\s+(.\!.=>)/s','/\s+(.\~.=>)/s','/\n\s*(.\/.=>)/s',
+		'/{/', '/\s*(.\$.=>)/'],' $1',$str); // cut \n
 		return $str;
 	}
 }

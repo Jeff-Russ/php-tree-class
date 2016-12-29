@@ -2,6 +2,37 @@
 
 trait UnusedTreeTrait
 {
+	# THE FOLLOWING ARE NOT NOT USED:
+
+	public function keyState($key) { # Returns falsy if assignable, truthy if not.
+		# null means unset, a boolean means it's a Tree object. A string means else
+		if ( array_key_exists($key, $this->_['T']) ) {
+			if ($this->_['.@']!==false) {
+				# Trees are never assignable if there is ANY Lock:
+				if (is_a($this->_['T'][$key], get_class())) return true;
+				# now we know it's not a Tree:
+				elseif ($this->_['.@']==='trees') return ''; #only locking Trees
+				else return gettype($this->_['T'][$key]);   #locking all
+			}# no lock and it's a Tree:
+			elseif (is_a($this->_['T'][$key], get_class())) return false;
+			else return '';  # not a Tree and no lock
+		} else return null; # not assigned at all
+	}
+	
+	public function Convert($set=null) # called on pathkeys ending with '.Convert', or '.@'
+	{
+		if ($set=null) return $this->_['.@']; # <-GET, SET:
+		elseif ($set===$this->_['.@']) return $this;
+		else $this->_['.@'] = $set;
+		if (!empty($this->_['T'])) self::_rConfig($this);
+		return $this;
+	}
+
+	public function Lock($set=null) { # called on pathkeys ending with '.Lock', or '.!'
+		if ($set=null) return $this->_['.!']; # <-GET, SET:
+		else $this->_['.!'] = $set;
+	}
+
 	# THE FOLLOWING WHERE NEVER USED: 
 
 	# set to Root and GET

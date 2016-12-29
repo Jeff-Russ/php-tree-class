@@ -13,8 +13,8 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 		$this->_ = array_merge([
 			'.$' =>'',        # Key if nested in Parent Tree
 			'.#' => 0,        # Depth - distance from Root Tree
-			'.@' => true,     # Convert arrays to Tree - true/false/'shallow'
-			'.!' => 'Trees',  # Lock reassignment of children - true/false/'Trees'
+			//'.@' => true,     # Convert arrays to Tree - true/false/'shallow'
+			// '.!' => 'Trees',  # Lock reassignment of children - true/false/'Trees'
 			'.+' =>[0=>$this],# all Ancestors (Trees) from this up to Root with int keys
 			'.-' => null,     # .+ ran through array_reverse
 			'.K' =>[0=>$dK],  # all Ancestors (Trees) from this up to Root with string keys
@@ -36,11 +36,14 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 	public function Root() { return $this->_['/']; }
 	public function Depth(){ return $this->_['.#']; }
 
-	public function Parent($set=null) # called on pathkeys ending with '.Parent', '../' or '..'
+	public function Parent($set=null)
 	{
-		if ($set===null) return $this->_['..']; # <-GET, SET:
-		elseif ($this->_['..']===$set) return self::err('already Parent','n');
-		elseif (!is_a($set, get_class())) return self::err('cannot assign as Parent','e');
+		if ($set===null) return $this->_['..']; # GET mode
+		# SET mode:
+		elseif ($this->_['..']===$set)
+			return new Nil('node', "'$set' is already Parent", '!n', 1);
+		elseif (!is_a($set, get_class()))
+			return new Nil('node', "Parent must be Tree object", '!n', 1);
 		else { $this->_['T']['..'] = $set; self::_rConfig($this); }
 		return $this;
 	}
@@ -58,25 +61,12 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 		}
 	}
 
-	public function Convert($set=null) # called on pathkeys ending with '.Convert', or '.@'
-	{
-		if ($set=null) return $this->_['.@']; # <-GET, SET:
-		elseif ($set===$this->_['.@']) return $this;
-		else $this->_['.@'] = $set;
-		if (!empty($this->_['T'])) self::_rConfig($this);
-		return $this;
-	}
-
-	public function Lock($set=null) { # called on pathkeys ending with '.Lock', or '.!'
-		if ($set=null) return $this->_['.!']; # <-GET, SET:
-		else $this->_['.!'] = $set;
-	}
-
 	public function Key($set=null) # called on pathkeys ending with '.Key', or '.$'
 	{
 		if ($set===null) return $this->_['.$']; # <-GET, SET:
 		elseif ($this['/']===$this ) { $this['/'] = $set; return $this; }
-		elseif ($this->keyState($set)) return new Nil('offsetError', "Tree '$set' is locked", 1);
+		elseif (array_key_exists($set, $this->_['T']))
+			return new Nil('offsetError', "Tree '$set' is in use", 1);
 		else {
 			$parent =& $this->_['..']->_['T'];
 			if ($parent[$this->_['.$']]===$this) unset($parent[$this->_['.$']]);
@@ -84,21 +74,6 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 			$parent[$set] = $this;
 			return $this;
 		}
-	}
-
-	public function keyState($key) { # Returns falsy if assignable, truthy if not.
-		# null means unset, a boolean means it's a Tree object. A string means else
-		if ( array_key_exists($key, $this->_['T']) ) {
-			if ($this->_['.@']!==false) {
-				# Trees are never assignable if there is ANY Lock:
-				if (is_a($this->_['T'][$key], get_class())) return true;
-				# now we know it's not a Tree:
-				elseif ($this->_['.@']==='trees') return ''; #only locking Trees
-				else return gettype($this->_['T'][$key]);   #locking all
-			}# no lock and it's a Tree:
-			elseif (is_a($this->_['T'][$key], get_class())) return false;
-			else return '';  # not a Tree and no lock
-		} else return null; # not assigned at all
 	}
 
 	public function offsetUnset($key)
@@ -292,35 +267,6 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 		}
 	}
 }
-
-$inner = new Tree(['inner'=>'innerval'],['.$'=>'inner']);
-$tree = new Tree([ 
-	'1-leaf' => 'stringvalue',
-	'1-tree1' => 
-	[
-		'2-tree' => 
-		[
-			'3-leaf' => 'stringvalue',
-			'3-tree' =>
-			[
-				['4-leaf' => 'stringvalue'],
-				$inner['.$'] => $inner,
-			]
-		]
-	],
-	'1-tree2' => ['2-leaf' => 'stringvalue'],
-],['.$'=>'Root']);
-
-// foreach ($inner['.+'] as $k => $v) {
-// 	echo "$k => ".$v['.$']."\n";
-// }
-// echo Tree::_rGet($inner, '/$');
-// echo $inner->rGet('/$');
-echo $inner['-1/.$'];
-// echo $tree['1-tree1']['.$'];
-// echo $inner['/']['.$'];
-
-// echo gettype($tree['1-tree1']['2-tree']['3-tree'])."\n";
 
 
 
