@@ -196,9 +196,8 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable {
 						$k = $v->_['.$'];
 						if ($v===$v->_['..']) 
 							return new Nil('protected', 'Tree Root', 2);
-
-						$result = $v->_['..']->_keySet($k,$set,$old);
 						
+						$result = $v->_['..']->_keySet($k,$set,$old);
 						if ($result) return $old;
 						else new Nil('protected', 'Tree Node', 2);
 
