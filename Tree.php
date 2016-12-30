@@ -2,12 +2,9 @@
 
 include_once 'traits.php';
 
-class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
-{
+class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable {
 	use DBugTrait, TreeTrait, OldTreeTraits;
-
 	protected $_;
-
 	public function __construct($array=[], $args=[]) {
 		$dK = isset($args['.$']) ? $args['.$'] : '';
 		$this->_ = array_merge([
@@ -36,8 +33,7 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 	public function Root() { return $this->_['/']; }
 	public function Depth(){ return $this->_['.#']; }
 
-	public function Parent($set=null)
-	{
+	public function Parent($set=null) {
 		if ($set===null) return $this->_['..']; # GET mode
 		# SET mode:
 		elseif ($this->_['..']===$set)
@@ -50,8 +46,7 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 
 	# GET only, called on pathkeys ending with '.Ancestors', or '.+'
 	# or '-INT' '+INT', where INT is an integer anywhere in pathkey
-	public function Ancestors($token=null) 
-	{
+	public function Ancestors($token=null) {
 		if ($token===null) return $this->_['.+']; #GET array, GET elem: 
 		else { $i=(int)$token;
 			if ($token==$i) {
@@ -60,9 +55,7 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 			}#ELSE ERROR?
 		}
 	}
-
-	public function Key($set=null) # called on pathkeys ending with '.Key', or '.$'
-	{
+	public function Key($set=null) {
 		if ($set===null) return $this->_['.$']; # <-GET, SET:
 		elseif ($this['/']===$this ) { $this['/'] = $set; return $this; }
 		elseif (array_key_exists($set, $this->_['T']))
@@ -75,9 +68,7 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 			return $this;
 		}
 	}
-
-	public function offsetUnset($key)
-	{
+	public function offsetUnset($key) {
 		if (array_key_exists($key, $this->_['T'])) {
 				$v = $this->_['T'][$key];
 			if (is_a($v, get_class())) {
@@ -91,13 +82,12 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 		else return new Nil('offsetUnset', 'Tree element', 1);
 	}
 
-	public function path($path, $set='nIl')
-	{
+	public function path($path, $set=NIL) {
 		if (is_array($path)) { $paths = $path;
 			$path = $path[0]!=='/' ? implode('/',$path) : substr(implode('/',$path), 1);
 		} else $paths = null;
 		if (array_key_exists($path, $this->_['T'])) {
-			if ($set==='nIl') return $this->_['T'][$path];
+			if ($set===NIL) return $this->_['T'][$path];
 			elseif ($this->_keySet($path,$set,$old)) return $old;
 		}
 		if ($paths===null) {
@@ -107,7 +97,7 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 		$failchunk=''; $col = $this; $type=2; # 1 array, 2 Tree, 3 ArrayAccess
 		end($paths); $lastslash_k = key($paths);
 
-		foreach ($paths as $slash_k=>$slash) { $v = 'nIl';
+		foreach ($paths as $slash_k=>$slash) { $v = NIL;
 			$lastslash = $slash_k===$lastslash_k;  $slash_confirmed = false;
 			if ($failchunk!=='') {preg_match("`$failchunk/+$slash`", $path, $m); $slash = $m[0];}
 			if ($type===1 && array_key_exists($slash, $col)) $slash_confirmed = true;
@@ -119,12 +109,12 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 					$out = self::_dotsplitParse($status,$col,$failchunk,$slash,$lastslash,$set);
 					if ($status==='failed') {$failchunk = $out; continue;}
 					elseif ($status==='returned') return $out; 
-					elseif ($status==='new_Tree') {$failchunk=''; $col = $out; continue;}
+					elseif ($status==='new_tree') {$failchunk=''; $col = $out; continue;}
 				}
 			}
 			if ($lastslash) {
 				if ($slash_confirmed) {
-					if ($set==='nIl') return $col[$slash];
+					if ($set===NIL) return $col[$slash];
 					if ($type===2) {
 						$result = $col->_keySet($slash,$set,$old);
 						if ($result) return $old;
@@ -146,24 +136,29 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 			}
 		}
 	}
-	
-	private function _keySet ($key, $set, &$old)
-	{
-		$old = $this->_['T'][$key]; $fail = $this->_['.!'];
+	# return $fail true or false
+
+	private function _keySet ($key, $set, &$old_val) {
+		$old_val = $this->_['T'][$key];
+		$fail = $this->_['.!'];
+
 		if (is_a($v, get_class())) {
 			if ($fail===false) {
-				$old->_['.#'] = 0; $old->_['..'] = $old->_['/'] = $old;
-				if ( !empty($old->_['T']) ) self::_rConfig($old);
-			} else $fail = true;
+				$old_val->_['.#'] = 0;
+				$old_val->_['..'] = $old_val->_['/'] = $old_val;
+				if ( !empty($old_val->_['T']) ) self::_rConfig($old_val);
+			}
+			else $fail = true;
 		}
 		if ($fail!==true) { $fail = false;
-			unset( $this->_['T'][$key] ); $this->_['T'][$key] = $set;
+			unset( $this->_['T'][$key] );
+			$this->_['T'][$key] = $set;
 		}
 		return !$fail;
 	}
 
 	private static function _dotsplitParse ( // in calling function $tree is $col
-		&$status, $tree, $failchunk, $slash, $lastslash, $set='nIl'
+		&$status, $tree, $failchunk, $slash, $lastslash, $set=NIL
 	) {
 		$RELPEXT = '\.(\.|Parent|[-.]1)$|(\/|\.Root|\.[+R]0)';
 		$POSPEXT = '\.[+R](\d+)|\.[-.](\d+)|\.\.\$(.+)';
@@ -175,7 +170,7 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 		$exts = preg_split('/(\.+[^.]+)/', $slash, -1, $FLAGS);
 		end($exts); $lastext_k = key($exts); // reset($exts); $firstext_k = key($tree);
 
-		foreach ($exts as $ext_k=>$ext) { // $v = 'nIl'; $firstext = $ext_k===$firstext_k;
+		foreach ($exts as $ext_k=>$ext) { // $v = NIL; $firstext = $ext_k===$firstext_k;
 			$lastext = $ext_k===$lastext_k;  $verylast = $lastext && $lastslash; 
 			if ($failchunk!=='') $ext = $failchunk.$ext;
 			
@@ -188,39 +183,43 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 			$n = count($capt)-1;
 			if ($n<6) {
 				if($n<3){
-				    if     ($n===1) $v = $tree->_['..'];
-				    elseif ($n===2) $v = $tree->_['/']; 
+					if     ($n===1) $v = $tree->_['..'];
+					elseif ($n===2) $v = $tree->_['/']; 
 				} else { if($n===3) $v = $tree->_['.+'][ (int)$capt[1] ];
-				    elseif ($n===4) $v = $tree->_['.-'][ (int)$capt[1] ];
-				    else  /*$n===5*/$v = $tree->_['.K'][ $capt[5] ];
+					elseif ($n===4) $v = $tree->_['.-'][ (int)$capt[1] ];
+					else  /*$n===5*/$v = $tree->_['.K'][ $capt[5] ];
 				}
 				if (!is_a($v,get_class())) { $failchunk .= $ext; continue; }
 				else {
 					if ($verylast) {
-						if ($set==='nIl') return $v;
+						if ($set===NIL) return $v;
 						$k = $v->_['.$'];
 						if ($v===$v->_['..']) 
 							return new Nil('protected', 'Tree Root', 2);
+
 						$result = $v->_['..']->_keySet($k,$set,$old);
+						
 						if ($result) return $old;
 						else new Nil('protected', 'Tree Node', 2);
+
+
 					} else {$failchunk=''; $new_tree=true; $tree = $v; continue;}
 				}
 			} elseif ($verylast) {
-				if ($set==='nIl') {
+				if ($set===NIL) {
 					if ($n<10/* && $n>5 */) {
 						if ($n<8) {
-						    if     ($n===6) return $tree->_['.+'];
-						    else  /*$n===7*/return $tree->_['.-']; 
+							if     ($n===6) return $tree->_['.+'];
+							else  /*$n===7*/return $tree->_['.-']; 
 						} else { if($n===8) return $tree->_['.P'];
-						    else  /*$n===9*/return array_keys($tree->_['.K']); }
+							else  /*$n===9*/return array_keys($tree->_['.K']); }
 					} elseif ($n<14) {
 						if ($n<12) {
-						    if     ($n===10) return $tree->_['.#'];
-						    else  /*$n===11*/return $tree->Key(); 
+							if     ($n===10) return $tree->_['.#'];
+							else  /*$n===11*/return $tree->Key(); 
 						} else { if($n===12) return $tree->Lock();
-						    else  /*$n===13*/return $tree->Convert(); } }
-				} else /*$set!=='nIl'*/ { 
+							else  /*$n===13*/return $tree->Convert(); } }
+				} else /*$set!==NIL*/ { 
 					if    ($n===11) return $tree->Key($set);
 					elseif($n===12) return $tree->Lock($set);
 					elseif($n===13) return $tree->Convert($set);
@@ -235,14 +234,16 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 	protected static function _rConfig(&$Parent, $key=null) {
 		# If $key is not provided, all contents of $Parent will be configured recursively.
 		# $key can specify a single key on $Parent to recursively configure
-		$next_=[  '..'=>$Parent,   '/'=>$Parent->_['/'],   '.+'=>$Parent->_['.+'],
-		  '.#'=>$Parent->_['.#']+1,  '.!'=>$Parent->_['.!']
-		 ];
+		$next_=[
+			'..' => $Parent,
+			'/'  => $Parent->_['/'],
+			'.+' => $Parent->_['.+'],
+			'.#' => $Parent->_['.#'] + 1,
+		];
 		foreach ($Parent->_['T'] as $k => &$v) {
 			if ($key===null || $k===$key) {
 				$next_['.$'] = $k;
-				if ( is_array($v) && $Parent->_['.@']) {
-					$next_['.@'] = $Parent->_['.@']===true ? true : false;
+				if (is_array($v)) {
 					$next_['T'] = $v;
 					$v = new static();
 					$v->_ = array_merge($v->_, $next_);
@@ -251,8 +252,6 @@ class Tree implements Serializable, IteratorAggregate, ArrayAccess, Countable
 					// $v->_['.K'][ $k ] = $v;
 					if (!empty($v->_['T'])) self::_rConfig($v);
 				} elseif ( is_a($v, get_class()) ) {
-					$next_['.@'] = $v->_['.@'];
-
 					# unset from old Parent if we need to:
 					if ($v!==$v->_['..'] && isset($v->_['..']->_['T'][ $v->_['.$'] ])
 					 && $v->_['..']->_['T'][ $v->_['.$'] ]===$v)
