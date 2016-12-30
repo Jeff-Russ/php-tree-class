@@ -2,6 +2,10 @@
 
 Tree is a smart array object inspired by the Node/Tree data structure and the UNIX file system's 'inodes'.  
 
+# WARNING
+
+__Tree class is currently has memory leak issues__  
+
 ## General Info
 
 Just a UNIX directory has a hidden file called `..` in every directory (which is a reference to the parent directory), a Tree array object has the `['..']` key which is a reference to the parent Tree and `['/']` which would also be reference to itself if Root. This means that each flat array `Tree` object is held together in a chain of references with other `Tree` objects, making them independent yet able to access each other even if out of scope.  
