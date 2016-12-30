@@ -4,7 +4,7 @@ Tree is a smart array object inspired by the Node/Tree data structure and the UN
 
 # WARNING
 
-__Tree class is currently has memory leak issues__  
+__Tree class currently has memory leak issues__  
 
 ## General Info
 
