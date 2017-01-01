@@ -1,12 +1,13 @@
 <?php
 include_once 'traits.php';
 
-if (!defined('NIL')) define('NIL', 'NIL_CONST');
+if (!defined('NIL')) define('NIL', '');
 
 if (!trait_exists ('NilTrait')) {
 	trait NilTrait {
 		/*objects with NilTrait should be checkable with: if ($var==NIL) ...
 		so that Nil object can be check in the same way as NIL constants.
+		NOTE that ($var==NIL) works the same if $var is anything falsy
 		*/
 		final public function __toString() { return NIL; }
 	}
@@ -67,7 +68,7 @@ class Nil extends Exception { use NilTrait, StorableTrait;
 
 		foreach ($argv as $i=>$v) {
 			if (is_string($v)) {
-				if (preg_match('/^[^\s]*$/',$v)===0) $this->msg_part = $v;
+				if (strpos($v,' ')!==false) $this->msg_part = $v;
 				else { # ^ has spaces, no spaces:
 					if ($v==='') $this->report = '';
 					elseif ( !ctype_punct($v[0]) ) {
@@ -94,47 +95,3 @@ class Nil extends Exception { use NilTrait, StorableTrait;
 		if ($store===true) $this->store();
 	}
 }
-
-if (!trait_exists ('StorableTrait')) {
-trait StorableTrait
-{
-	protected static $arr = [];
-	protected static $count = 0;
-	protected $idx = null;
-	protected $thres = 10;
-
-	public function idx() { return $this->idx; }
-	public static function getStore() { return self::$arr; }
-
-	public function __destruct() {
-		if ($this->idx!==null) {
-			if (self::$arr[$this->idx]===$this) unset(self::$arr[$this->idx]);
-			else unset(self::$arr[array_search($this,self::$arr,true)]);
-		}
-	}
-	public static function resort($thres=null) {
-		if ($thres!==null) {self::$thres = abs($thres - 1); $run = true;}
-		else {end(self::$arr); $run = end(self::$arr)>(self::$count+self::$thres);}
-		if ($run===true) {
-			$inst = self::$arr; $self::$arr = []; $i = 0;
-			foreach ($inst as $k=>$v) {$self::$arr[$i] = $v; $v->idx = $i; $i++;}
-			self::$count = $i;
-		}
-	}
-	public function store() {
-		if ($this->idx===null) {
-			self::$arr[] = $this; end(self::$arr);
-			$this->idx = key(self::$arr); self::$count++;
-		}
-	}
-	public function unstore() {
-		if ($this->idx!==null) {
-			if (self::$arr[$this->idx]===$this) unset(self::$arr[$this->idx]);
-			else unset(self::$arr[array_search($this,self::$arr,true)]);
-			$this->idx = null; self::$count--;
-			self::resort();
-		}
-	}
-}
-}#END trait_exists() check
-

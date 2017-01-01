@@ -1,57 +1,90 @@
 <?php
+trait ReportTrait {
+	public $trace;
+	public $previous = null;
+	protected $code; # protected on parent
+	protected $message = '';
+	protected $variable = null;
+	protected $report = null;
+	protected $value = null;
+	protected $depth = 0;
+	protected $class = null;
+	protected $function = null;
 
-trait StorableTrait
-{
-	protected static $array = [];
-	protected static $count = 0;
-	protected $index = null;
-	protected $thresh = 10;
+	public function getMsgPart()  { return $this->variable;}
+	public function getVariable() { return $this->variable;}
+	public function getValue()    { return $this->value; }
+	public function getDepth()    { return $this->depth; }
 
-	public function index() { return $this->index; }
-	public static function getStore() { return self::$array; }
+	protected $exception = [
+		'code' => '',
+		'variable' => null,
+		'report' => '',
+		'value' => null,
+		'depth' => 0,
+	];
 
-	public function __destruct() {
-		if ($this->index!==null) {
-			if (self::$array[$this->index]===$this)
-				unset(self::$array[$this->index]);
-			else
-				unset(self::$array[array_search($this,self::$array,true)]);
+	public function tracedMsg() {
+
+		$argc = func_num_args();
+
+		if ($argc!==0) {
+			$argv = func_get_args();
+			foreach ($argv as $k=>$v) { if (is_a($v,'Exception')) $this->prevous = $v; }
 		}
-	}
-	public static function resort($thresh=null) {
-		if ($thresh!==null) {self::$thresh = abs($thresh - 1); $run = true;}
-		else {
-			end(self::$array);
-			$run = end(self::$array) > (self::$count + self::$thresh);
+		parent::__construct('', 0, $this->prevous);
+		$this->trace = $this->getTrace();
+
+		# set class from trace here
+
+		$this->trace = array_slice(debug_backtrace(),1);
+
+		$consts = [E_USER_NOTICE=>1,E_USER_ERROR=>1,E_USER_WARNING=>1];
+
+		foreach ($argv as $k=>$v) {
+			if (is_int($v)) {
+				$this->code = $v;
+			} elseif (is_string($v)) {
+				if     ( $v==='' )   $this->report = '';
+				elseif ($v[0]==='!') $this->report = substr($v,1);
+				elseif (strpos($v,' ')!==false) $this->message = $v;
+
+				elseif (ctype_punct($v[0])) { # no spaces and starting punct:
+					if (preg_match('/^[-+]{0,1}\d+$/',$v)!==0) $this->depth=abs($v);
+					elseif ($v[0]==='$') $this->variable = substr($v,1);
+					elseif ($v[0]==='=') $this->value    = substr($v,1);
+					elseif ($v[0]==='[' && $v[-1]===']')$this->store = substr($v,1,-1);
+					else $this->message = $v;
+				
+				} else { # no spaces and NOT starting punct:
+					if ($this->class!==null && method_exists(
+					 $this->class,$v))        $this->function= $v;
+					elseif (class_exists($v)) $this->class   = $v;
+					else                      $this->message = $v;
+				}
+			}
 		}
-		if ($run===true) {
-			$inst = self::$array; $self::$array = []; $i = 0;
-			foreach ($inst as $k=>$v)
-				{$self::$array[$i] = $v; $v->index = $i; $i++;}
-			self::$count = $i;
+		$argv = array_merge(['depth'=>1,'message'=>''], $argv);
+		extract(array_merge(debug_backtrace()[ $argv['depth'] ], $argv));
+
+		if (isset($class)) $message =  "$message: $class::$function $file($line)\n";
+		elseif (isset($function)) $message =  "$message: $function() $file($line)\n";
+		else $message =  "$message in $file($line)\n";
+
+		if (isset($level)) trigger_error($message, $level);
+		elseif (isset($trig)) {
+			$label = $trig==='!' ? '' : strtolower($trig[1]);
+			if     ($label==='n') $label = "Notice: ";
+			elseif ($label==='i') $label = "Info: ";
+			elseif ($label==='w') $label = "Warning: ";
+			elseif ($label==='e') $label = "Error: ";
+			echo $label.$message;
 		}
-	}
-	public function store() {
-		if ($this->index===null) {
-			self::$array[] = $this; end(self::$array);
-			$this->index = key(self::$array);
-			self::$count++;
-		}
-	}
-	public function unstore() {
-		if ($this->index!==null) {
-			if (self::$array[$this->index]===$this)
-				unset(self::$array[$this->index]);
-			else
-				unset(self::$array[array_search($this,self::$array,true)]);
-			$this->index = null; self::$count--;
-			self::resort();
-		}
+		return $message;
 	}
 }
 
 trait DBugTrait {
-	
 	public static function offsetError ($key=null) {
 		extract(self::offsetError);
 		if ($key!==null) $message = $message.": '$key'";
@@ -87,9 +120,7 @@ trait DBugTrait {
 }
 
 trait OldTreeTraits {
-	
-	public function offsetGet($key, $variable=null, $value=null)
-	{
+	public function offsetGet($key, $variable=null, $value=null) {
 		# recursive getter, subsequent calls
 		if ($variable!==null) {
 			$next = array_shift($key);
@@ -129,8 +160,7 @@ trait OldTreeTraits {
 		}
 		else return self::err("Tree key out of bounds",'w');
 	}
-	public function offsetSet($key, $set)
-	{
+	public function offsetSet($key, $set) {
 		# modify tree properties
 		if (ctype_punct($key[0])) {
 
@@ -194,33 +224,4 @@ trait OldTreeTraits {
 	}
 }
 
-trait TreeTrait {
 
-	public function echoTree($echo=true) {
-		ini_set('xdebug.var_display_max_depth', 100);
-		ini_set('xdebug.var_display_max_children', 256);
-		ini_set('xdebug.var_display_max_data', 1024);
-		$tree_ob = clone $this;
-		$recurse = function( &$tree ) use (&$recurse)
-		{
-			if ( !empty($tree->_['T']) )
-				foreach ($tree->_['T'] as $k => $v)
-					if ( is_a($v, get_class()) ) $recurse($v);
-			$tree->_['..'] = $tree->_['..']->_['.$'];
-			$tree->_['/'] = $tree->_['/']->_['.$'];
-			return $tree;
-		};
-		$result = $recurse($tree_ob);
-		ob_start(); var_dump($result);
-		$str = preg_replace('/\s+(=>)\s+/s','=>',ob_get_clean());
-		$str = str_replace([ "class "],'',$str);
-		$str = preg_replace(['/locked/', '/#[0-9]+ \([0-9]+\)/', '/\n\s*}/',
-			'/string\([0-9]+\)\s/','/array\([0-9]+\)\s/', '/object\((Tree)\) {/',
-			'/bool\(([a-zA-Z]+)\)/', '/int\(([0-9]+)\)/','/\n\s*(\s.\..=>)/',],'$1',$str);
-		$str = preg_replace(['/\n\s*\$_=>\s*/s','/\n\s*(.#.=>)/s','/\n\s*(.\.\..=>)/s',
-		'/\s+(.\!.=>)/s','/\s+(.\~.=>)/s','/\n\s*(.\/.=>)/s',
-		'/{/', '/\s*(.\$.=>)/'],' $1',$str); // cut \n
-		if ($echo) echo $str;
-		return $str;
-	}
-}

@@ -2,8 +2,6 @@
 
 Tree is a smart array object inspired by the Node/Tree data structure and the UNIX file system's 'inodes'.  
 
-# NOTIE
-
 __Tree is currently being rewritten to be non-recursive__  
 
 ### Universal Key Access
